@@ -119,7 +119,7 @@ canvas{width:100%;height:100%;display:block}
 /* Processing */
 .processing{display:none;text-align:center;color:var(--amber);font-size:14px;padding:10px;gap:10px;align-items:center;justify-content:center}
 .processing.show{display:flex}
-.spinner{width:16px;height:16px;border:2px solid rgba(255,184,77,.25);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,184,77,.25);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;flex:0 0 auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* Segments list */
@@ -133,12 +133,15 @@ canvas{width:100%;height:100%;display:block}
 }
 .btn-mini svg{width:14px;height:14px}
 .btn-mini:hover{border-color:var(--muted)}
+.btn-mini:disabled{opacity:.4;cursor:not-allowed}
 .btn-mini.dl{color:var(--green)}
 .btn-mini.dl:hover{border-color:var(--green)}
 .btn-mini.del{color:var(--red)}
 .btn-mini.del:hover{border-color:var(--red)}
 .btn-mini.play{color:var(--blue)}
 .btn-mini.play:hover{border-color:var(--blue)}
+.btn-mini.conv{color:var(--amber)}
+.btn-mini.conv:hover{border-color:var(--amber)}
 
 .seg-item{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
@@ -155,10 +158,11 @@ canvas{width:100%;height:100%;display:block}
 .seg-item .meta{flex:1;min-width:140px}
 .seg-item .meta .name{font-size:14px;font-weight:600}
 .seg-item .meta .sub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px}
-.seg-item .acts{display:flex;gap:7px}
+.seg-item .acts{display:flex;gap:7px;flex-wrap:wrap}
 .empty{color:var(--muted);text-align:center;font-size:13.5px;padding:18px 0}
 .err{color:var(--red);font-size:13px;text-align:center;margin-top:10px;display:none}
 .err.show{display:block}
+footer{text-align:center;color:#54617a;font-size:11.5px;margin-top:8px}
 
 /* Murf voice changer */
 .api-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
@@ -171,7 +175,6 @@ canvas{width:100%;height:100%;display:block}
 .icon-btn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13px;font-family:inherit}
 .icon-btn:hover{color:var(--text);border-color:var(--muted)}
 .model-row{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
-.model-row select{flex:0 0 auto;min-width:150px}
 .voice-search{
   width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);
   border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13.5px;margin-bottom:10px;outline:none;
@@ -209,10 +212,10 @@ canvas{width:100%;height:100%;display:block}
 .seg-conv .vbadge{font-size:11px;font-weight:700;color:var(--green);background:rgba(77,214,160,.15);border-radius:7px;padding:4px 8px;white-space:nowrap}
 .seg-conv .cname{font-size:12.5px;flex:1;min-width:120px}
 .seg-item .conv-hint{width:100%;font-size:12px;color:var(--muted);margin-top:6px}
-.btn-mini.conv{color:var(--amber)}
-.btn-mini.conv:hover{border-color:var(--amber)}
 
-footer{text-align:center;color:#54617a;font-size:11.5px;margin-top:8px}
+/* Merge */
+.merge-hint{font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.merge-hint b{color:var(--text)}
 </style>
 </head>
 <body>
@@ -259,7 +262,7 @@ footer{text-align:center;color:#54617a;font-size:11.5px;margin-top:8px}
       </button>
     </div>
 
-    <div class="processing" id="processing"><span class="spinner"></span> Đang xử lý &amp; cắt file 3 phút…</div>
+    <div class="processing" id="processing"><span class="spinner"></span><span id="processingText">Đang xử lý &amp; cắt file 3 phút…</span></div>
     <div class="err" id="err"></div>
   </div>
 
@@ -312,7 +315,24 @@ footer{text-align:center;color:#54617a;font-size:11.5px;margin-top:8px}
     <div class="murf-err" id="murfErr"></div>
   </div>
 
-  <footer>Định dạng WAV 16-bit · cắt chính xác 180 giây/file · file &amp; API key lưu tự động trong trình duyệt — đóng trang mở lại vẫn còn</footer>
+  <!-- Nối file -->
+  <div class="card" id="mergeCard">
+    <div class="seg-head"><h2>Nối file đã đổi giọng</h2></div>
+    <div class="merge-hint">Ghép tất cả file <b>đã đổi giọng</b> lại thành 1 file WAV duy nhất, theo đúng thứ tự đã cắt (part01 → part02 → …). File gốc chưa đổi giọng sẽ không được tính vào.</div>
+    <div class="controls" style="margin-bottom:6px">
+      <button class="btn btn-pause" id="btnMerge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 12h8M12 8v8"/><circle cx="12" cy="12" r="9"/></svg>
+        Nối tất cả file đã đổi giọng
+      </button>
+    </div>
+    <div class="progress-wrap" id="mergeProgressWrap">
+      <span id="mergeProgressText">Đang nối…</span>
+      <div class="progress-track"><i class="progress-fill" id="mergeProgressFill"></i></div>
+    </div>
+    <div id="mergedBox" style="margin-top:12px"><div class="empty">Chưa có file nối nào.</div></div>
+  </div>
+
+  <footer>Định dạng WAV 16-bit · cắt chính xác 180 giây/file · file được lưu tự động trong trình duyệt (IndexedDB) — đóng trang mở lại vẫn còn</footer>
 </div>
 
 <script>
@@ -321,17 +341,55 @@ let mediaStream=null, mediaRecorder=null, chunks=[];
 let audioCtx=null, analyser=null, rafId=null;
 let startTs=0, elapsedBefore=0, timerId=null, isRecording=false, isPaused=false;
 let segments=[]; // {id,blob,url,dur,name,created,convertedBlob,convertedUrl,convertedName,convertedVoiceName}
-let playingAudio=null, playingIdx=-1, playingKind=null;
+let playingAudio=null, playingIdx=-1, playingKind=null; // playingKind: 'orig'|'conv'|'merged'
+let mergedFile=null; // {id,blob,url,name,dur,size,count,created}
 
-/* ---------- IndexedDB: lưu file cắt vào bộ nhớ máy ---------- */
-const DB_NAME='phong_thau_db', STORE='segments';
+const $=id=>document.getElementById(id);
+const micSelect=$('micSelect'), statusText=$('statusText'), scope=$('scope'),
+      timerEl=$('timer'), segNow=$('segNow'), segLeft=$('segLeft'), segFill=$('segFill'),
+      btnRec=$('btnRec'), btnPause=$('btnPause'), btnStop=$('btnStop'),
+      segList=$('segList'), segCount=$('segCount'), btnDelAll=$('btnDelAll'), btnDlAll=$('btnDlAll'),
+      processing=$('processing'), processingText=$('processingText'), errEl=$('err');
+const canvas=$('wave'), ctx2d=canvas.getContext('2d');
+
+function showErr(m){errEl.textContent=m;errEl.classList.add('show');setTimeout(()=>errEl.classList.remove('show'),6000)}
+function fmt(s){s=Math.floor(s||0);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function setProcessingText(t){ processingText.textContent=t; }
+
+/* ---------- Danh sách micro ---------- */
+async function loadMics(keepId){
+  try{
+    const tmp=await navigator.mediaDevices.getUserMedia({audio:true});
+    tmp.getTracks().forEach(t=>t.stop());
+    const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');
+    micSelect.innerHTML='';
+    devs.forEach((d,i)=>{
+      const o=document.createElement('option');
+      o.value=d.deviceId;
+      o.textContent=d.label||('Micro '+(i+1));
+      micSelect.appendChild(o);
+    });
+    if(keepId && [...micSelect.options].some(o=>o.value===keepId)) micSelect.value=keepId;
+    if(!devs.length) micSelect.innerHTML='<option value="">Không tìm thấy micro</option>';
+  }catch(e){
+    micSelect.innerHTML='<option value="">Chưa cấp quyền micro</option>';
+    showErr('Vui lòng cấp quyền micro cho trình duyệt rồi bấm "Làm mới".');
+  }
+}
+$('btnRefresh').onclick=()=>loadMics(micSelect.value);
+navigator.mediaDevices.addEventListener?.('devicechange',()=>{ if(!isRecording) loadMics(micSelect.value); });
+loadMics();
+
+/* ---------- IndexedDB: lưu file cắt + file nối vào bộ nhớ máy ---------- */
+const DB_NAME='phong_thau_db', STORE='segments', MERGED_STORE='merged';
 let db=null;
 function openDB(){
   return new Promise((res,rej)=>{
-    const rq=indexedDB.open(DB_NAME,1);
+    const rq=indexedDB.open(DB_NAME,2);
     rq.onupgradeneeded=e=>{
       const d=e.target.result;
       if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains(MERGED_STORE)) d.createObjectStore(MERGED_STORE,{keyPath:'id'});
     };
     rq.onsuccess=e=>{db=e.target.result;res(db)};
     rq.onerror=()=>rej(rq.error);
@@ -375,7 +433,29 @@ function dbLoadAll(){
     rq.onerror=()=>rej(rq.error);
   });
 }
-async function restoreSegments(){
+function dbGetMerged(){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(MERGED_STORE,'readonly');
+    const rq=tx.objectStore(MERGED_STORE).get(1);
+    rq.onsuccess=()=>res(rq.result||null);
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+function dbSetMerged(rec){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(MERGED_STORE,'readwrite');
+    tx.objectStore(MERGED_STORE).put(rec);
+    tx.oncomplete=()=>res(true); tx.onerror=()=>rej(tx.error);
+  });
+}
+function dbDeleteMerged(){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(MERGED_STORE,'readwrite');
+    tx.objectStore(MERGED_STORE).delete(1);
+    tx.oncomplete=()=>res(true); tx.onerror=()=>rej(tx.error);
+  });
+}
+async function restoreAll(){
   try{
     await openDB();
     const rows=await dbLoadAll();
@@ -389,47 +469,13 @@ async function restoreSegments(){
       return s;
     });
     renderSegments();
-    // xin trình duyệt giữ dữ liệu lâu dài, tránh bị tự dọn dẹp
+    const m=await dbGetMerged();
+    if(m){ mergedFile={...m,url:URL.createObjectURL(m.blob)}; }
+    renderMerged();
     if(navigator.storage&&navigator.storage.persist) navigator.storage.persist();
   }catch(e){ console.warn('IndexedDB:',e); }
 }
-restoreSegments();
-
-const $=id=>document.getElementById(id);
-const micSelect=$('micSelect'), statusText=$('statusText'), scope=$('scope'),
-      timerEl=$('timer'), segNow=$('segNow'), segLeft=$('segLeft'), segFill=$('segFill'),
-      btnRec=$('btnRec'), btnPause=$('btnPause'), btnStop=$('btnStop'),
-      segList=$('segList'), segCount=$('segCount'), btnDelAll=$('btnDelAll'), btnDlAll=$('btnDlAll'),
-      processing=$('processing'), errEl=$('err');
-const canvas=$('wave'), ctx2d=canvas.getContext('2d');
-
-function showErr(m){errEl.textContent=m;errEl.classList.add('show');setTimeout(()=>errEl.classList.remove('show'),6000)}
-function fmt(s){s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
-
-/* ---------- Danh sách micro ---------- */
-async function loadMics(keepId){
-  try{
-    // xin quyền để lấy label thiết bị
-    const tmp=await navigator.mediaDevices.getUserMedia({audio:true});
-    tmp.getTracks().forEach(t=>t.stop());
-    const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');
-    micSelect.innerHTML='';
-    devs.forEach((d,i)=>{
-      const o=document.createElement('option');
-      o.value=d.deviceId;
-      o.textContent=d.label||('Micro '+(i+1));
-      micSelect.appendChild(o);
-    });
-    if(keepId && [...micSelect.options].some(o=>o.value===keepId)) micSelect.value=keepId;
-    if(!devs.length) micSelect.innerHTML='<option value="">Không tìm thấy micro</option>';
-  }catch(e){
-    micSelect.innerHTML='<option value="">Chưa cấp quyền micro</option>';
-    showErr('Vui lòng cấp quyền micro cho trình duyệt rồi bấm "Làm mới".');
-  }
-}
-$('btnRefresh').onclick=()=>loadMics(micSelect.value);
-navigator.mediaDevices.addEventListener?.('devicechange',()=>{ if(!isRecording) loadMics(micSelect.value); });
-loadMics();
+restoreAll();
 
 /* ---------- Sóng âm ---------- */
 function resizeCanvas(){
@@ -442,7 +488,6 @@ function drawWave(){
   rafId=requestAnimationFrame(drawWave);
   const W=canvas.width,H=canvas.height;
   ctx2d.fillStyle='#0a0f1a'; ctx2d.fillRect(0,0,W,H);
-  // đường giữa
   ctx2d.strokeStyle='#1e2a40'; ctx2d.lineWidth=1;
   ctx2d.beginPath(); ctx2d.moveTo(0,H/2); ctx2d.lineTo(W,H/2); ctx2d.stroke();
   if(!analyser) return;
@@ -519,6 +564,7 @@ btnPause.onclick=()=>{
 btnStop.onclick=()=>{
   if(!mediaRecorder) return;
   clearInterval(timerId);
+  setProcessingText('Đang xử lý & cắt file 3 phút…');
   processing.classList.add('show');
   statusText.textContent='ĐANG XỬ LÝ'; scope.classList.remove('recording');
   btnStop.disabled=true; btnPause.disabled=true;
@@ -586,7 +632,10 @@ function encodeWAV(chData,sampleRate,len){
 
 /* ---------- Danh sách file ---------- */
 function stopPlaying(){
-  if(playingAudio){playingAudio.pause();playingAudio=null;playingIdx=-1;playingKind=null;renderSegments();}
+  if(playingAudio){
+    playingAudio.pause(); playingAudio=null; playingIdx=-1; playingKind=null;
+    renderSegments(); renderMerged();
+  }
 }
 function renderSegments(){
   segCount.textContent=segments.length?`(${segments.length} file)`:'';
@@ -684,7 +733,8 @@ segList.onclick=e=>{
 btnDelAll.onclick=()=>{
   if(!confirm('Xóa tất cả '+segments.length+' file?'))return;
   stopPlaying(); if(db) dbClear().catch(()=>{});
-  segments.forEach(s=>URL.revokeObjectURL(s.url)); segments=[]; renderSegments();
+  segments.forEach(s=>{ URL.revokeObjectURL(s.url); if(s.convertedUrl) URL.revokeObjectURL(s.convertedUrl); });
+  segments=[]; renderSegments();
 };
 btnDlAll.onclick=()=>{
   segments.forEach((s,i)=>setTimeout(()=>{
@@ -728,7 +778,6 @@ btnSaveKey.onclick=()=>{
   showMurfErr('Đã lưu API key trên trình duyệt này.',true);
 };
 
-// Danh sách giọng khác nhau tùy model (Falcon / Gen2) — tải cả hai và gộp lại, bỏ trùng theo voiceId
 async function fetchVoicesForModel(model){
   try{
     const res=await fetch(`${MURF_API}/speech/voices?model=${model}`,{headers:{'api-key':murfApiKey}});
@@ -743,14 +792,12 @@ btnLoadVoices.onclick=async()=>{
   try{
     const [falcon,gen2]=await Promise.all([fetchVoicesForModel('FALCON'),fetchVoicesForModel('GEN2')]);
     const seen=new Set(), merged=[];
-    [...falcon,...gen2].forEach(v=>{
-      if(v && v.voiceId && !seen.has(v.voiceId)){ seen.add(v.voiceId); merged.push(v); }
-    });
+    [...falcon,...gen2].forEach(v=>{ if(v&&v.voiceId&&!seen.has(v.voiceId)){seen.add(v.voiceId);merged.push(v);} });
     if(!merged.length) throw new Error('Không tải được giọng nào — kiểm tra API key');
     voiceList=merged;
     voiceSearch.disabled=false;
     renderVoiceGrid(voiceSearch.value);
-    showMurfErr(`Đã tải ${merged.length} giọng (gộp cả Falcon &amp; Gen2).`,true);
+    showMurfErr(`Đã tải ${merged.length} giọng (gộp cả Falcon & Gen2).`,true);
   }catch(e){
     showMurfErr('Không tải được danh sách giọng: '+e.message+(/Failed to fetch/i.test(e.message)?' — có thể do CORS hoặc mạng bị chặn.':''));
   }
@@ -759,7 +806,6 @@ btnLoadVoices.onclick=async()=>{
 voiceSearch.oninput=()=>renderVoiceGrid(voiceSearch.value);
 
 function regionLabel(v){
-  // Ưu tiên nhãn khu vực chi tiết từ supportedLocales (vd "English (UK)"), giống hệt cách Murf nhóm trên web
   const detail=v.supportedLocales && v.locale && v.supportedLocales[v.locale] && v.supportedLocales[v.locale].detail;
   return detail || (v.displayLanguage && v.accent ? `${v.displayLanguage} (${v.accent})` : (v.displayLanguage||v.locale||'Khác'));
 }
@@ -869,6 +915,115 @@ btnConvertAll.onclick=async()=>{
   btnConvertAll.disabled=false;
   setTimeout(()=>{ convProgressWrap.style.display='none'; convProgressFill.style.width='0%'; },4000);
 };
+
+/* ---------- Nối file đã đổi giọng theo thứ tự ---------- */
+const btnMerge=$('btnMerge'), mergeProgressWrap=$('mergeProgressWrap'),
+      mergeProgressText=$('mergeProgressText'), mergeProgressFill=$('mergeProgressFill'), mergedBox=$('mergedBox');
+
+function toMonoData(buffer){
+  const ch=buffer.numberOfChannels;
+  if(ch===1) return buffer.getChannelData(0);
+  const len=buffer.length, out=new Float32Array(len);
+  for(let c=0;c<ch;c++){
+    const data=buffer.getChannelData(c);
+    for(let i=0;i<len;i++) out[i]+=data[i]/ch;
+  }
+  return out;
+}
+async function resampleBuffer(buffer, targetRate){
+  if(buffer.sampleRate===targetRate) return buffer;
+  const offlineCtx=new OfflineAudioContext(buffer.numberOfChannels, Math.ceil(buffer.duration*targetRate), targetRate);
+  const src=offlineCtx.createBufferSource();
+  src.buffer=buffer; src.connect(offlineCtx.destination); src.start(0);
+  return await offlineCtx.startRendering();
+}
+
+btnMerge.onclick=async()=>{
+  const list=segments.filter(s=>s.convertedBlob); // giữ đúng thứ tự đã cắt (part01 → part02 → …)
+  if(!list.length){ showErr('Chưa có file nào được đổi giọng để nối.'); return; }
+  btnMerge.disabled=true;
+  mergeProgressWrap.style.display='flex';
+  mergeProgressFill.style.width='0%';
+  const targetRate=44100;
+  const decodeCtx=new (window.AudioContext||window.webkitAudioContext)();
+  try{
+    const monoArrays=[]; let totalLen=0;
+    for(let i=0;i<list.length;i++){
+      mergeProgressText.textContent=`Đang nối ${i+1}/${list.length}: ${list[i].name}`;
+      const buf=await list[i].convertedBlob.arrayBuffer();
+      const audioBuf=await decodeCtx.decodeAudioData(buf);
+      const resampled=await resampleBuffer(audioBuf,targetRate);
+      const mono=toMonoData(resampled);
+      monoArrays.push(mono); totalLen+=mono.length;
+      mergeProgressFill.style.width=((i+1)/list.length*100)+'%';
+    }
+    const combined=new Float32Array(totalLen);
+    let off=0;
+    for(const arr of monoArrays){ combined.set(arr,off); off+=arr.length; }
+    const wav=encodeWAV([combined], targetRate, combined.length);
+    const stamp=new Date();
+    const dstr=stamp.getFullYear()+String(stamp.getMonth()+1).padStart(2,'0')+String(stamp.getDate()).padStart(2,'0')+'_'+String(stamp.getHours()).padStart(2,'0')+String(stamp.getMinutes()).padStart(2,'0');
+    const rec={id:1, blob:wav, name:`noi_giong_${dstr}.wav`, dur:combined.length/targetRate, size:wav.size, count:list.length, created:Date.now()};
+    if(db){ try{ await dbSetMerged(rec); }catch(e){ console.warn('Lưu file nối lỗi:',e); } }
+    if(mergedFile&&mergedFile.url) URL.revokeObjectURL(mergedFile.url);
+    mergedFile={...rec, url:URL.createObjectURL(wav)};
+    renderMerged();
+  }catch(e){
+    showErr('Lỗi nối file: '+e.message);
+  }
+  decodeCtx.close();
+  mergeProgressWrap.style.display='none';
+  btnMerge.disabled=false;
+};
+
+function renderMerged(){
+  if(!mergedFile){
+    mergedBox.innerHTML='<div class="empty">Chưa có file nối nào.</div>';
+    return;
+  }
+  const playing=playingKind==='merged';
+  mergedBox.innerHTML=`
+    <div class="seg-item">
+      <div class="idx">🔗</div>
+      <div class="meta">
+        <div class="name">${mergedFile.name}</div>
+        <div class="sub">${fmt(mergedFile.dur)} · ${(mergedFile.size/1048576).toFixed(1)} MB · nối từ ${mergedFile.count} file</div>
+      </div>
+      <div class="acts">
+        <button class="btn-mini play" id="btnPlayMerged">
+          ${playing
+            ?'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Dừng'
+            :'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nghe'}
+        </button>
+        <button class="btn-mini dl" id="btnDlMerged">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg> Tải về
+        </button>
+        <button class="btn-mini del" id="btnDelMerged">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0l1 13h8l1-13"/></svg> Xóa file nối
+        </button>
+      </div>
+    </div>`;
+  $('btnPlayMerged').onclick=()=>{
+    const wasPlaying=playingKind==='merged';
+    stopPlaying();
+    if(wasPlaying) return;
+    playingAudio=new Audio(mergedFile.url); playingIdx=-2; playingKind='merged';
+    playingAudio.onended=stopPlaying;
+    playingAudio.play();
+    renderSegments(); renderMerged();
+  };
+  $('btnDlMerged').onclick=()=>{
+    const l=document.createElement('a'); l.href=mergedFile.url; l.download=mergedFile.name; l.click();
+  };
+  $('btnDelMerged').onclick=async()=>{
+    if(!confirm('Xóa file đã nối này? (không ảnh hưởng các file gốc/đã đổi giọng riêng lẻ)')) return;
+    if(playingKind==='merged') stopPlaying();
+    URL.revokeObjectURL(mergedFile.url);
+    if(db){ try{ await dbDeleteMerged(); }catch(e){} }
+    mergedFile=null;
+    renderMerged();
+  };
+}
 
 drawWave();
 </script>
