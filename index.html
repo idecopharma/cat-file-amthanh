@@ -159,6 +159,59 @@ canvas{width:100%;height:100%;display:block}
 .empty{color:var(--muted);text-align:center;font-size:13.5px;padding:18px 0}
 .err{color:var(--red);font-size:13px;text-align:center;margin-top:10px;display:none}
 .err.show{display:block}
+
+/* Murf voice changer */
+.api-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.api-row input[type=password],.api-row input[type=text]{
+  flex:1;min-width:220px;background:var(--panel2);color:var(--text);
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;
+}
+.api-row input:focus{border-color:var(--amber)}
+.icon-btn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13px;font-family:inherit}
+.icon-btn:hover{color:var(--text);border-color:var(--muted)}
+.model-row{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.model-row select{flex:0 0 auto;min-width:150px}
+.voice-search{
+  width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);
+  border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13.5px;margin-bottom:10px;outline:none;
+}
+.voice-search:focus{border-color:var(--amber)}
+.voice-chip-selected{
+  display:inline-flex;align-items:center;gap:8px;background:rgba(77,214,160,.12);
+  color:var(--green);border:1px solid rgba(77,214,160,.3);border-radius:99px;
+  padding:6px 12px;font-size:12.5px;font-weight:600;
+}
+.voice-chip-selected span{opacity:.7}
+.voice-chip-selected span:hover{opacity:1}
+.voice-grid{max-height:260px;overflow-y:auto;padding-right:4px}
+.voice-group{margin-bottom:14px}
+.voice-group h3{font-size:11.5px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
+.voice-cards{display:flex;flex-wrap:wrap;gap:8px}
+.voice-card{
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  padding:8px 12px;cursor:pointer;font-size:12.5px;transition:border-color .15s;
+}
+.voice-card:hover{border-color:var(--blue)}
+.voice-card.active{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.voice-card .vname{font-weight:600}
+.voice-card .vsub{color:var(--muted);font-size:11px;margin-top:2px}
+.progress-wrap{display:none;align-items:center;gap:10px;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.progress-track{flex:1;height:5px;background:var(--panel2);border-radius:99px;overflow:hidden}
+.progress-fill{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--blue),#7fc0ff);transition:width .3s}
+.murf-err{color:var(--red);font-size:13px;text-align:center;margin-top:10px;display:none}
+.murf-err.show{display:block}
+.seg-conv{
+  width:100%;margin-top:8px;padding:9px 12px;
+  background:rgba(77,214,160,.08);border:1px solid rgba(77,214,160,.25);
+  border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.seg-conv .vbadge{font-size:11px;font-weight:700;color:var(--green);background:rgba(77,214,160,.15);border-radius:7px;padding:4px 8px;white-space:nowrap}
+.seg-conv .cname{font-size:12.5px;flex:1;min-width:120px}
+.seg-item .conv-hint{width:100%;font-size:12px;color:var(--muted);margin-top:6px}
+.btn-mini.conv{color:var(--amber)}
+.btn-mini.conv:hover{border-color:var(--amber)}
+
 footer{text-align:center;color:#54617a;font-size:11.5px;margin-top:8px}
 </style>
 </head>
@@ -228,7 +281,38 @@ footer{text-align:center;color:#54617a;font-size:11.5px;margin-top:8px}
     <div id="segList"><div class="empty">Chưa có file nào. Bấm <b>Thâu âm</b> để bắt đầu.</div></div>
   </div>
 
-  <footer>Định dạng WAV 16-bit · cắt chính xác 180 giây/file · file được lưu tự động trong trình duyệt (IndexedDB) — đóng trang mở lại vẫn còn</footer>
+  <!-- Murf Voice Changer -->
+  <div class="card" id="murfCard">
+    <div class="seg-head"><h2>Đổi giọng bằng Murf AI</h2></div>
+
+    <div class="api-row">
+      <input type="password" id="murfKeyInput" placeholder="Dán API key Murf vào đây…" autocomplete="off">
+      <button class="icon-btn" id="btnToggleKey" title="Hiện/ẩn key">👁</button>
+      <button class="icon-btn" id="btnSaveKey">Lưu key</button>
+    </div>
+
+    <div class="model-row">
+      <button class="btn-mini" id="btnLoadVoices">⟳ Tải danh sách giọng (gồm cả Falcon &amp; Gen2)</button>
+      <span id="voiceChip"></span>
+    </div>
+
+    <input type="text" class="voice-search" id="voiceSearch" placeholder="Tìm giọng theo ngôn ngữ, quốc gia, tên…" disabled>
+    <div class="voice-grid" id="voiceGrid"><div class="empty">Nhập và lưu API key rồi bấm "Tải danh sách giọng" để xem các giọng theo quốc gia.</div></div>
+
+    <div class="controls" style="margin-top:14px">
+      <button class="btn btn-pause" id="btnConvertAll">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg>
+        Đổi giọng tất cả file chưa xử lý
+      </button>
+    </div>
+    <div class="progress-wrap" id="convProgressWrap">
+      <span id="convProgressText">Đang xử lý…</span>
+      <div class="progress-track"><i class="progress-fill" id="convProgressFill"></i></div>
+    </div>
+    <div class="murf-err" id="murfErr"></div>
+  </div>
+
+  <footer>Định dạng WAV 16-bit · cắt chính xác 180 giây/file · file &amp; API key lưu tự động trong trình duyệt — đóng trang mở lại vẫn còn</footer>
 </div>
 
 <script>
@@ -236,8 +320,8 @@ const SEG_SEC = 180; // 3 phút chính xác
 let mediaStream=null, mediaRecorder=null, chunks=[];
 let audioCtx=null, analyser=null, rafId=null;
 let startTs=0, elapsedBefore=0, timerId=null, isRecording=false, isPaused=false;
-let segments=[]; // {id,blob,url,dur,name}
-let playingAudio=null, playingIdx=-1;
+let segments=[]; // {id,blob,url,dur,name,created,convertedBlob,convertedUrl,convertedName,convertedVoiceName}
+let playingAudio=null, playingIdx=-1, playingKind=null;
 
 /* ---------- IndexedDB: lưu file cắt vào bộ nhớ máy ---------- */
 const DB_NAME='phong_thau_db', STORE='segments';
@@ -256,7 +340,15 @@ function openDB(){
 function dbAdd(seg){
   return new Promise((res,rej)=>{
     const tx=db.transaction(STORE,'readwrite');
-    const rq=tx.objectStore(STORE).add({blob:seg.blob,dur:seg.dur,name:seg.name,created:Date.now()});
+    const rq=tx.objectStore(STORE).add({blob:seg.blob,dur:seg.dur,name:seg.name,created:seg.created||Date.now()});
+    rq.onsuccess=()=>res(rq.result);
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+function dbPut(rec){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    const rq=tx.objectStore(STORE).put(rec);
     rq.onsuccess=()=>res(rq.result);
     rq.onerror=()=>rej(rq.error);
   });
@@ -288,7 +380,14 @@ async function restoreSegments(){
     await openDB();
     const rows=await dbLoadAll();
     rows.sort((a,b)=>a.id-b.id);
-    segments=rows.map(r=>({id:r.id,blob:r.blob,url:URL.createObjectURL(r.blob),dur:r.dur,name:r.name}));
+    segments=rows.map(r=>{
+      const s={id:r.id,blob:r.blob,url:URL.createObjectURL(r.blob),dur:r.dur,name:r.name,created:r.created};
+      if(r.convertedBlob){
+        s.convertedBlob=r.convertedBlob; s.convertedName=r.convertedName; s.convertedVoiceName=r.convertedVoiceName;
+        s.convertedUrl=URL.createObjectURL(r.convertedBlob);
+      }
+      return s;
+    });
     renderSegments();
     // xin trình duyệt giữ dữ liệu lâu dài, tránh bị tự dọn dẹp
     if(navigator.storage&&navigator.storage.persist) navigator.storage.persist();
@@ -451,7 +550,7 @@ async function processRecording(){
       for(let c=0;c<ch;c++) chData.push(audio.getChannelData(c).subarray(s,e));
       const wav=encodeWAV(chData,sr,len);
       const url=URL.createObjectURL(wav);
-      const seg={blob:wav,url,dur:len/sr,name:`thau_am_${dstr}_part${String(baseIdx+i+1).padStart(2,'0')}.wav`};
+      const seg={blob:wav,url,dur:len/sr,name:`thau_am_${dstr}_part${String(baseIdx+i+1).padStart(2,'0')}.wav`,created:Date.now()};
       try{ if(db) seg.id=await dbAdd(seg); }catch(e){ console.warn('Lưu IndexedDB lỗi:',e); }
       segments.push(seg);
     }
@@ -487,7 +586,7 @@ function encodeWAV(chData,sampleRate,len){
 
 /* ---------- Danh sách file ---------- */
 function stopPlaying(){
-  if(playingAudio){playingAudio.pause();playingAudio=null;playingIdx=-1;renderSegments();}
+  if(playingAudio){playingAudio.pause();playingAudio=null;playingIdx=-1;playingKind=null;renderSegments();}
 }
 function renderSegments(){
   segCount.textContent=segments.length?`(${segments.length} file)`:'';
@@ -496,7 +595,30 @@ function renderSegments(){
   segList.innerHTML='';
   segments.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='seg-item';
-    const playing=i===playingIdx;
+    const playingOrig=i===playingIdx&&playingKind==='orig';
+    const playingConv=i===playingIdx&&playingKind==='conv';
+    let convBlock='';
+    if(s.converting){
+      convBlock=`<div class="conv-hint"><span class="spinner" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:6px"></span>Đang đổi giọng…</div>`;
+    }else if(s.convertedBlob){
+      convBlock=`<div class="seg-conv">
+        <span class="vbadge">🎙 ${s.convertedVoiceName||'Đã đổi giọng'}</span>
+        <span class="cname">${s.convertedName}</span>
+        <button class="btn-mini play" data-a="play" data-k="conv" data-i="${i}">
+          ${playingConv
+            ?'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Dừng'
+            :'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nghe'}
+        </button>
+        <button class="btn-mini dl" data-a="dl" data-k="conv" data-i="${i}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg> Tải về
+        </button>
+        <button class="btn-mini del" data-a="delconv" data-i="${i}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0l1 13h8l1-13"/></svg> Xóa bản đổi giọng
+        </button>
+      </div>`;
+    }else if(s.convertError){
+      convBlock=`<div class="conv-hint" style="color:var(--red)">Lỗi đổi giọng — <button class="btn-mini conv" data-a="conv" data-i="${i}" style="padding:3px 8px">Thử lại</button></div>`;
+    }
     d.innerHTML=`
       <div class="idx">#${String(i+1).padStart(2,'0')}</div>
       <div class="meta">
@@ -504,38 +626,59 @@ function renderSegments(){
         <div class="sub">${fmt(s.dur)} · ${(s.blob.size/1048576).toFixed(1)} MB · WAV</div>
       </div>
       <div class="acts">
-        <button class="btn-mini play" data-a="play" data-i="${i}">
-          ${playing
+        <button class="btn-mini play" data-a="play" data-k="orig" data-i="${i}">
+          ${playingOrig
             ?'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Dừng'
             :'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nghe'}
         </button>
-        <button class="btn-mini dl" data-a="dl" data-i="${i}">
+        <button class="btn-mini dl" data-a="dl" data-k="orig" data-i="${i}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg> Tải về
         </button>
+        ${(!s.convertedBlob&&!s.converting)?`<button class="btn-mini conv" data-a="conv" data-i="${i}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> Đổi giọng
+        </button>`:''}
         <button class="btn-mini del" data-a="del" data-i="${i}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0l1 13h8l1-13"/></svg> Xóa
         </button>
-      </div>`;
+      </div>
+      ${convBlock}`;
     segList.appendChild(d);
   });
 }
 segList.onclick=e=>{
   const b=e.target.closest('button'); if(!b)return;
-  const i=+b.dataset.i, a=b.dataset.a, s=segments[i];
+  const i=+b.dataset.i, a=b.dataset.a, k=b.dataset.k||'orig', s=segments[i];
+  if(!s) return;
   if(a==='play'){
-    if(playingIdx===i){stopPlaying();return;}
+    const url=k==='conv'?s.convertedUrl:s.url;
+    if(!url) return;
+    if(playingIdx===i&&playingKind===k){stopPlaying();return;}
     stopPlaying();
-    playingAudio=new Audio(s.url); playingIdx=i;
+    playingAudio=new Audio(url); playingIdx=i; playingKind=k;
     playingAudio.onended=stopPlaying;
     playingAudio.play(); renderSegments();
   }
   if(a==='dl'){
-    const l=document.createElement('a'); l.href=s.url; l.download=s.name; l.click();
+    const url=k==='conv'?s.convertedUrl:s.url, name=k==='conv'?s.convertedName:s.name;
+    if(!url) return;
+    const l=document.createElement('a'); l.href=url; l.download=name; l.click();
   }
   if(a==='del'){
     if(playingIdx===i)stopPlaying();
     if(db&&s.id!=null) dbDelete(s.id).catch(()=>{});
-    URL.revokeObjectURL(s.url); segments.splice(i,1); playingIdx=-1; renderSegments();
+    URL.revokeObjectURL(s.url); if(s.convertedUrl)URL.revokeObjectURL(s.convertedUrl);
+    segments.splice(i,1); playingIdx=-1; renderSegments();
+  }
+  if(a==='delconv'){
+    if(playingIdx===i&&playingKind==='conv') stopPlaying();
+    if(s.convertedUrl) URL.revokeObjectURL(s.convertedUrl);
+    delete s.convertedBlob; delete s.convertedUrl; delete s.convertedName; delete s.convertedVoiceName;
+    if(db&&s.id!=null) dbPut({id:s.id,blob:s.blob,dur:s.dur,name:s.name,created:s.created}).catch(()=>{});
+    renderSegments();
+  }
+  if(a==='conv'){
+    s.convertError=false;
+    convertSegment(s);
   }
 };
 btnDelAll.onclick=()=>{
@@ -547,6 +690,184 @@ btnDlAll.onclick=()=>{
   segments.forEach((s,i)=>setTimeout(()=>{
     const l=document.createElement('a'); l.href=s.url; l.download=s.name; l.click();
   }, i*400));
+};
+
+/* ---------- Murf AI — Đổi giọng ---------- */
+const MURF_API='https://api.murf.ai/v1';
+const murfKeyInput=$('murfKeyInput'), btnToggleKey=$('btnToggleKey'), btnSaveKey=$('btnSaveKey'),
+      btnLoadVoices=$('btnLoadVoices'), voiceChip=$('voiceChip'),
+      voiceSearch=$('voiceSearch'), voiceGrid=$('voiceGrid'), btnConvertAll=$('btnConvertAll'),
+      convProgressWrap=$('convProgressWrap'), convProgressText=$('convProgressText'), convProgressFill=$('convProgressFill'),
+      murfErr=$('murfErr');
+
+let murfApiKey=localStorage.getItem('murf_api_key')||'';
+let voiceList=[];
+let selectedVoice=null;
+try{ selectedVoice=JSON.parse(localStorage.getItem('murf_selected_voice')||'null'); }catch(e){}
+
+murfKeyInput.value=murfApiKey;
+
+function showMurfErr(m,ok){
+  murfErr.textContent=m; murfErr.style.color=ok?'var(--green)':'var(--red)';
+  murfErr.classList.add('show');
+  setTimeout(()=>murfErr.classList.remove('show'),ok?2500:7000);
+}
+function updateVoiceChip(){
+  voiceChip.innerHTML=selectedVoice
+    ? `<span class="voice-chip-selected">🎙 ${selectedVoice.label} <span data-clear="1" style="cursor:pointer">✕</span></span>`
+    : '';
+  const clr=voiceChip.querySelector('[data-clear]');
+  if(clr) clr.onclick=()=>{ selectedVoice=null; localStorage.removeItem('murf_selected_voice'); updateVoiceChip(); renderVoiceGrid(voiceSearch.value); };
+}
+updateVoiceChip();
+
+btnToggleKey.onclick=()=>{ murfKeyInput.type=murfKeyInput.type==='password'?'text':'password'; };
+btnSaveKey.onclick=()=>{
+  murfApiKey=murfKeyInput.value.trim();
+  localStorage.setItem('murf_api_key',murfApiKey);
+  showMurfErr('Đã lưu API key trên trình duyệt này.',true);
+};
+
+// Danh sách giọng khác nhau tùy model (Falcon / Gen2) — tải cả hai và gộp lại, bỏ trùng theo voiceId
+async function fetchVoicesForModel(model){
+  try{
+    const res=await fetch(`${MURF_API}/speech/voices?model=${model}`,{headers:{'api-key':murfApiKey}});
+    if(!res.ok) return [];
+    const arr=await res.json();
+    return Array.isArray(arr)?arr:[];
+  }catch(e){ return []; }
+}
+btnLoadVoices.onclick=async()=>{
+  if(!murfApiKey){ showMurfErr('Vui lòng nhập và lưu API key trước.'); return; }
+  btnLoadVoices.disabled=true; const oldTxt=btnLoadVoices.textContent; btnLoadVoices.textContent='Đang tải…';
+  try{
+    const [falcon,gen2]=await Promise.all([fetchVoicesForModel('FALCON'),fetchVoicesForModel('GEN2')]);
+    const seen=new Set(), merged=[];
+    [...falcon,...gen2].forEach(v=>{
+      if(v && v.voiceId && !seen.has(v.voiceId)){ seen.add(v.voiceId); merged.push(v); }
+    });
+    if(!merged.length) throw new Error('Không tải được giọng nào — kiểm tra API key');
+    voiceList=merged;
+    voiceSearch.disabled=false;
+    renderVoiceGrid(voiceSearch.value);
+    showMurfErr(`Đã tải ${merged.length} giọng (gộp cả Falcon &amp; Gen2).`,true);
+  }catch(e){
+    showMurfErr('Không tải được danh sách giọng: '+e.message+(/Failed to fetch/i.test(e.message)?' — có thể do CORS hoặc mạng bị chặn.':''));
+  }
+  btnLoadVoices.disabled=false; btnLoadVoices.textContent=oldTxt;
+};
+voiceSearch.oninput=()=>renderVoiceGrid(voiceSearch.value);
+
+function regionLabel(v){
+  // Ưu tiên nhãn khu vực chi tiết từ supportedLocales (vd "English (UK)"), giống hệt cách Murf nhóm trên web
+  const detail=v.supportedLocales && v.locale && v.supportedLocales[v.locale] && v.supportedLocales[v.locale].detail;
+  return detail || (v.displayLanguage && v.accent ? `${v.displayLanguage} (${v.accent})` : (v.displayLanguage||v.locale||'Khác'));
+}
+function renderVoiceGrid(filter){
+  filter=(filter||'').toLowerCase().trim();
+  if(!voiceList.length){
+    voiceGrid.innerHTML='<div class="empty">Nhập và lưu API key rồi bấm "Tải danh sách giọng" để xem các giọng theo quốc gia.</div>';
+    return;
+  }
+  const groups={};
+  voiceList.forEach(v=>{
+    const region=regionLabel(v);
+    const hay=[v.displayName,v.description,v.displayLanguage,v.accent,v.locale,region].join(' ').toLowerCase();
+    if(filter&&!hay.includes(filter)) return;
+    (groups[region]=groups[region]||[]).push(v);
+  });
+  const keys=Object.keys(groups).sort();
+  if(!keys.length){ voiceGrid.innerHTML='<div class="empty">Không tìm thấy giọng phù hợp.</div>'; return; }
+  voiceGrid.innerHTML=keys.map(k=>`
+    <div class="voice-group">
+      <h3>${k} <span style="opacity:.5;font-weight:400">(${groups[k].length})</span></h3>
+      <div class="voice-cards">
+        ${groups[k].map(v=>{
+          const active=selectedVoice&&selectedVoice.voiceId===v.voiceId;
+          const genderIcon=v.gender==='Male'?'♂':v.gender==='Female'?'♀':'⚧';
+          const label=(v.displayName||v.voiceId)+' · '+k;
+          return `<div class="voice-card${active?' active':''}" data-vid="${v.voiceId}" data-label="${label.replace(/"/g,'&quot;')}">
+            <div class="vname">${genderIcon} ${v.displayName||v.voiceId}</div>
+            <div class="vsub">${v.description||''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+}
+voiceGrid.onclick=e=>{
+  const c=e.target.closest('.voice-card'); if(!c)return;
+  selectedVoice={voiceId:c.dataset.vid,label:c.dataset.label};
+  localStorage.setItem('murf_selected_voice',JSON.stringify(selectedVoice));
+  updateVoiceChip(); renderVoiceGrid(voiceSearch.value);
+};
+
+async function convertSegment(seg){
+  if(!murfApiKey){ showMurfErr('Vui lòng nhập và lưu API key trước.'); return; }
+  if(!selectedVoice){ showMurfErr('Vui lòng chọn một giọng trong danh sách trước.'); return; }
+  seg.converting=true; renderSegments();
+  try{
+    const fd=new FormData();
+    fd.append('file', seg.blob, seg.name);
+    fd.append('voice_id', selectedVoice.voiceId);
+    fd.append('format','WAV');
+    fd.append('sample_rate','44100');
+    fd.append('channel_type','MONO');
+    fd.append('encode_output_as_base64','true');
+    const res=await fetch(`${MURF_API}/voice-changer/convert`,{method:'POST',headers:{'api-key':murfApiKey},body:fd});
+    if(!res.ok){
+      let msg='HTTP '+res.status;
+      try{ const j=await res.json(); if(j&&(j.errorMessage||j.message)) msg+=': '+(j.errorMessage||j.message); }catch(_){}
+      throw new Error(msg);
+    }
+    const data=await res.json();
+    let convBlob=null;
+    if(data.encoded_audio){
+      const bin=atob(data.encoded_audio);
+      const bytes=new Uint8Array(bin.length);
+      for(let k=0;k<bin.length;k++) bytes[k]=bin.charCodeAt(k);
+      convBlob=new Blob([bytes],{type:'audio/wav'});
+    }else if(data.audio_file){
+      const ar=await fetch(data.audio_file);
+      if(!ar.ok) throw new Error('Không tải được file kết quả (HTTP '+ar.status+')');
+      convBlob=await ar.blob();
+    }else{
+      throw new Error('Không nhận được audio kết quả từ Murf');
+    }
+    if(seg.convertedUrl) URL.revokeObjectURL(seg.convertedUrl);
+    seg.convertedBlob=convBlob;
+    seg.convertedUrl=URL.createObjectURL(convBlob);
+    seg.convertedName=seg.name.replace(/\.wav$/i,'')+'_giong_'+selectedVoice.voiceId+'.wav';
+    seg.convertedVoiceName=selectedVoice.label;
+    seg.convertError=false;
+    if(db&&seg.id!=null){
+      await dbPut({id:seg.id,blob:seg.blob,dur:seg.dur,name:seg.name,created:seg.created,
+        convertedBlob:seg.convertedBlob,convertedName:seg.convertedName,convertedVoiceName:seg.convertedVoiceName});
+    }
+  }catch(e){
+    seg.convertError=true;
+    showMurfErr('Lỗi đổi giọng "'+seg.name+'": '+e.message+(/Failed to fetch/i.test(e.message)?' — có thể do CORS hoặc API key sai.':''));
+  }
+  seg.converting=false;
+  renderSegments();
+}
+
+btnConvertAll.onclick=async()=>{
+  if(!murfApiKey){ showMurfErr('Vui lòng nhập và lưu API key trước.'); return; }
+  if(!selectedVoice){ showMurfErr('Vui lòng chọn một giọng trong danh sách trước.'); return; }
+  const queue=segments.filter(s=>!s.convertedBlob&&!s.converting);
+  if(!queue.length){ showMurfErr('Không có file nào cần đổi giọng.'); return; }
+  btnConvertAll.disabled=true;
+  convProgressWrap.style.display='flex';
+  let done=0;
+  for(const seg of queue){
+    convProgressText.textContent=`Đang đổi giọng ${done+1}/${queue.length}: ${seg.name}`;
+    await convertSegment(seg);
+    done++;
+    convProgressFill.style.width=(done/queue.length*100)+'%';
+  }
+  convProgressText.textContent=`Hoàn tất ${done}/${queue.length} file.`;
+  btnConvertAll.disabled=false;
+  setTimeout(()=>{ convProgressWrap.style.display='none'; convProgressFill.style.width='0%'; },4000);
 };
 
 drawWave();
