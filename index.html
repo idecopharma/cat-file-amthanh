@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phòng Thâu — Cắt file 3 phút</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1420;
+  --panel:#161e2e;
+  --panel2:#1c2638;
+  --line:#28344a;
+  --text:#e8edf6;
+  --muted:#8b98ad;
+  --amber:#ffb84d;
+  --amber-deep:#e8920f;
+  --red:#ff5d5d;
+  --green:#4dd6a0;
+  --blue:#5aa6ff;
+  --radius:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Be Vietnam Pro',system-ui,sans-serif;
+  background:radial-gradient(1200px 600px at 50% -10%, #182238 0%, var(--bg) 60%);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;justify-content:center;
+  padding:24px 16px 60px;
+}
+.app{width:100%;max-width:760px}
+header{text-align:center;margin-bottom:22px}
+header h1{font-weight:800;font-size:26px;letter-spacing:.5px}
+header h1 .dot{color:var(--amber)}
+header p{color:var(--muted);font-size:13.5px;margin-top:4px}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:18px;
+  margin-bottom:16px;
+}
+
+/* Mic select */
+.mic-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mic-row label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+select{
+  flex:1;min-width:220px;
+  background:var(--panel2);color:var(--text);
+  border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;font-family:inherit;font-size:14px;outline:none;
+}
+select:focus{border-color:var(--amber)}
+.btn-refresh{
+  background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+  border-radius:10px;padding:10px 14px;cursor:pointer;font-family:inherit;font-size:13px;
+}
+.btn-refresh:hover{color:var(--text);border-color:var(--muted)}
+
+/* Waveform */
+.scope{
+  position:relative;
+  background:#0a0f1a;
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+  height:150px;
+  margin:16px 0;
+}
+canvas{width:100%;height:100%;display:block}
+.scope .status{
+  position:absolute;top:10px;left:12px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--muted);letter-spacing:1px;text-transform:uppercase;
+  display:flex;align-items:center;gap:7px;
+}
+.rec-dot{width:9px;height:9px;border-radius:50%;background:#3a4660}
+.recording .rec-dot{background:var(--red);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* Timer */
+.timer{
+  text-align:center;
+  font-family:'JetBrains Mono',monospace;
+  font-size:44px;font-weight:700;
+  letter-spacing:2px;
+  margin:4px 0 2px;
+}
+.timer .seg-hint{
+  display:block;font-size:12px;font-weight:500;color:var(--muted);
+  letter-spacing:.5px;margin-top:2px;
+}
+.timer .seg-hint b{color:var(--amber)}
+
+/* Progress to 3 min */
+.segbar{height:5px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:12px auto 18px;max-width:420px}
+.segbar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--amber-deep),var(--amber));transition:width .3s linear}
+
+/* Controls */
+.controls{display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap}
+.btn{
+  border:none;cursor:pointer;font-family:inherit;font-weight:600;
+  border-radius:14px;padding:14px 26px;font-size:15px;
+  display:inline-flex;align-items:center;gap:9px;
+  transition:transform .08s, box-shadow .2s, opacity .2s;
+}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn svg{width:18px;height:18px}
+.btn-rec{background:var(--red);color:#fff;box-shadow:0 6px 22px rgba(255,93,93,.35)}
+.btn-stop{background:var(--amber);color:#241a05;box-shadow:0 6px 22px rgba(255,184,77,.3)}
+.btn-pause{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn-clear{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.btn-clear:hover:not(:disabled){color:var(--red);border-color:var(--red)}
+
+/* Processing */
+.processing{display:none;text-align:center;color:var(--amber);font-size:14px;padding:10px;gap:10px;align-items:center;justify-content:center}
+.processing.show{display:flex}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,184,77,.25);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Segments list */
+.seg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.seg-head h2{font-size:16px;font-weight:600}
+.seg-head .count{font-size:12px;color:var(--muted)}
+.btn-mini{
+  background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:9px;padding:7px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:500;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-mini svg{width:14px;height:14px}
+.btn-mini:hover{border-color:var(--muted)}
+.btn-mini.dl{color:var(--green)}
+.btn-mini.dl:hover{border-color:var(--green)}
+.btn-mini.del{color:var(--red)}
+.btn-mini.del:hover{border-color:var(--red)}
+.btn-mini.play{color:var(--blue)}
+.btn-mini.play:hover{border-color:var(--blue)}
+
+.seg-item{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--panel2);border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;margin-bottom:10px;
+  animation:pop .25s ease;
+}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.seg-item .idx{
+  font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;
+  background:rgba(255,184,77,.12);color:var(--amber);
+  border-radius:8px;padding:6px 9px;min-width:42px;text-align:center;
+}
+.seg-item .meta{flex:1;min-width:140px}
+.seg-item .meta .name{font-size:14px;font-weight:600}
+.seg-item .meta .sub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.seg-item .acts{display:flex;gap:7px}
+.empty{color:var(--muted);text-align:center;font-size:13.5px;padding:18px 0}
+.err{color:var(--red);font-size:13px;text-align:center;margin-top:10px;display:none}
+.err.show{display:block}
+footer{text-align:center;color:#54617a;font-size:11.5px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>PHÒNG THÂU<span class="dot">●</span>3'</h1>
+    <p>Thâu âm chất lượng cao — tự động cắt chính xác mỗi file 3 phút</p>
+  </header>
+
+  <!-- Mic -->
+  <div class="card">
+    <div class="mic-row">
+      <label>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4"/></svg>
+        Micro
+      </label>
+      <select id="micSelect"><option>Đang tải danh sách micro…</option></select>
+      <button class="btn-refresh" id="btnRefresh" title="Làm mới danh sách">⟳ Làm mới</button>
+    </div>
+  </div>
+
+  <!-- Recorder -->
+  <div class="card" id="recCard">
+    <div class="scope" id="scope">
+      <canvas id="wave"></canvas>
+      <div class="status"><span class="rec-dot"></span><span id="statusText">SẴN SÀNG</span></div>
+    </div>
+
+    <div class="timer" id="timer">00:00<span class="seg-hint">File hiện tại: <b id="segNow">1</b> · còn <b id="segLeft">03:00</b> đến điểm cắt</span></div>
+    <div class="segbar"><i id="segFill"></i></div>
+
+    <div class="controls">
+      <button class="btn btn-rec" id="btnRec">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="7"/></svg>
+        Thâu âm
+      </button>
+      <button class="btn btn-pause" id="btnPause" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        Tạm dừng
+      </button>
+      <button class="btn btn-stop" id="btnStop" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        Dừng &amp; Cắt file
+      </button>
+    </div>
+
+    <div class="processing" id="processing"><span class="spinner"></span> Đang xử lý &amp; cắt file 3 phút…</div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <!-- Segments -->
+  <div class="card">
+    <div class="seg-head">
+      <h2>Các file đã cắt <span class="count" id="segCount"></span></h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn-mini dl" id="btnDlAll" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
+          Tải tất cả
+        </button>
+        <button class="btn-mini del" id="btnDelAll" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0l1 13h8l1-13"/></svg>
+          Xóa tất cả
+        </button>
+      </div>
+    </div>
+    <div id="segList"><div class="empty">Chưa có file nào. Bấm <b>Thâu âm</b> để bắt đầu.</div></div>
+  </div>
+
+  <footer>Định dạng WAV 16-bit · cắt chính xác 180 giây/file · file được lưu tự động trong trình duyệt (IndexedDB) — đóng trang mở lại vẫn còn</footer>
+</div>
+
+<script>
+const SEG_SEC = 180; // 3 phút chính xác
+let mediaStream=null, mediaRecorder=null, chunks=[];
+let audioCtx=null, analyser=null, rafId=null;
+let startTs=0, elapsedBefore=0, timerId=null, isRecording=false, isPaused=false;
+let segments=[]; // {id,blob,url,dur,name}
+let playingAudio=null, playingIdx=-1;
+
+/* ---------- IndexedDB: lưu file cắt vào bộ nhớ máy ---------- */
+const DB_NAME='phong_thau_db', STORE='segments';
+let db=null;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const rq=indexedDB.open(DB_NAME,1);
+    rq.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});
+    };
+    rq.onsuccess=e=>{db=e.target.result;res(db)};
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+function dbAdd(seg){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    const rq=tx.objectStore(STORE).add({blob:seg.blob,dur:seg.dur,name:seg.name,created:Date.now()});
+    rq.onsuccess=()=>res(rq.result);
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+function dbDelete(id){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+  });
+}
+function dbClear(){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+  });
+}
+function dbLoadAll(){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readonly');
+    const rq=tx.objectStore(STORE).getAll();
+    rq.onsuccess=()=>res(rq.result||[]);
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+async function restoreSegments(){
+  try{
+    await openDB();
+    const rows=await dbLoadAll();
+    rows.sort((a,b)=>a.id-b.id);
+    segments=rows.map(r=>({id:r.id,blob:r.blob,url:URL.createObjectURL(r.blob),dur:r.dur,name:r.name}));
+    renderSegments();
+    // xin trình duyệt giữ dữ liệu lâu dài, tránh bị tự dọn dẹp
+    if(navigator.storage&&navigator.storage.persist) navigator.storage.persist();
+  }catch(e){ console.warn('IndexedDB:',e); }
+}
+restoreSegments();
+
+const $=id=>document.getElementById(id);
+const micSelect=$('micSelect'), statusText=$('statusText'), scope=$('scope'),
+      timerEl=$('timer'), segNow=$('segNow'), segLeft=$('segLeft'), segFill=$('segFill'),
+      btnRec=$('btnRec'), btnPause=$('btnPause'), btnStop=$('btnStop'),
+      segList=$('segList'), segCount=$('segCount'), btnDelAll=$('btnDelAll'), btnDlAll=$('btnDlAll'),
+      processing=$('processing'), errEl=$('err');
+const canvas=$('wave'), ctx2d=canvas.getContext('2d');
+
+function showErr(m){errEl.textContent=m;errEl.classList.add('show');setTimeout(()=>errEl.classList.remove('show'),6000)}
+function fmt(s){s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+
+/* ---------- Danh sách micro ---------- */
+async function loadMics(keepId){
+  try{
+    // xin quyền để lấy label thiết bị
+    const tmp=await navigator.mediaDevices.getUserMedia({audio:true});
+    tmp.getTracks().forEach(t=>t.stop());
+    const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');
+    micSelect.innerHTML='';
+    devs.forEach((d,i)=>{
+      const o=document.createElement('option');
+      o.value=d.deviceId;
+      o.textContent=d.label||('Micro '+(i+1));
+      micSelect.appendChild(o);
+    });
+    if(keepId && [...micSelect.options].some(o=>o.value===keepId)) micSelect.value=keepId;
+    if(!devs.length) micSelect.innerHTML='<option value="">Không tìm thấy micro</option>';
+  }catch(e){
+    micSelect.innerHTML='<option value="">Chưa cấp quyền micro</option>';
+    showErr('Vui lòng cấp quyền micro cho trình duyệt rồi bấm "Làm mới".');
+  }
+}
+$('btnRefresh').onclick=()=>loadMics(micSelect.value);
+navigator.mediaDevices.addEventListener?.('devicechange',()=>{ if(!isRecording) loadMics(micSelect.value); });
+loadMics();
+
+/* ---------- Sóng âm ---------- */
+function resizeCanvas(){
+  const r=scope.getBoundingClientRect();
+  canvas.width=r.width*devicePixelRatio; canvas.height=r.height*devicePixelRatio;
+}
+window.addEventListener('resize',resizeCanvas); resizeCanvas();
+
+function drawWave(){
+  rafId=requestAnimationFrame(drawWave);
+  const W=canvas.width,H=canvas.height;
+  ctx2d.fillStyle='#0a0f1a'; ctx2d.fillRect(0,0,W,H);
+  // đường giữa
+  ctx2d.strokeStyle='#1e2a40'; ctx2d.lineWidth=1;
+  ctx2d.beginPath(); ctx2d.moveTo(0,H/2); ctx2d.lineTo(W,H/2); ctx2d.stroke();
+  if(!analyser) return;
+  const data=new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(data);
+  const grad=ctx2d.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'#e8920f'); grad.addColorStop(.5,'#ffb84d'); grad.addColorStop(1,'#e8920f');
+  ctx2d.strokeStyle=isPaused?'#3a4660':grad;
+  ctx2d.lineWidth=2*devicePixelRatio; ctx2d.beginPath();
+  const step=W/data.length;
+  for(let i=0;i<data.length;i++){
+    const y=(data[i]/255)*H;
+    i?ctx2d.lineTo(i*step,y):ctx2d.moveTo(0,y);
+  }
+  ctx2d.stroke();
+}
+
+/* ---------- Đồng hồ ---------- */
+function tick(){
+  const t=elapsedBefore+(isPaused?0:(Date.now()-startTs)/1000);
+  const inSeg=t%SEG_SEC, seg=Math.floor(t/SEG_SEC)+1;
+  timerEl.firstChild.nodeValue=fmt(t);
+  segNow.textContent=seg;
+  segLeft.textContent=fmt(SEG_SEC-inSeg);
+  segFill.style.width=(inSeg/SEG_SEC*100)+'%';
+}
+
+/* ---------- Thâu âm ---------- */
+btnRec.onclick=async()=>{
+  errEl.classList.remove('show');
+  try{
+    const devId=micSelect.value;
+    mediaStream=await navigator.mediaDevices.getUserMedia({audio:{
+      deviceId:devId?{exact:devId}:undefined,
+      echoCancellation:false, noiseSuppression:false, autoGainControl:false,
+      channelCount:1, sampleRate:48000
+    }});
+  }catch(e){ showErr('Không mở được micro: '+e.message); return; }
+
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const src=audioCtx.createMediaStreamSource(mediaStream);
+  analyser=audioCtx.createAnalyser(); analyser.fftSize=2048;
+  src.connect(analyser);
+
+  chunks=[];
+  const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(m=>MediaRecorder.isTypeSupported(m))||'';
+  mediaRecorder=new MediaRecorder(mediaStream, mime?{mimeType:mime,audioBitsPerSecond:192000}:{});
+  mediaRecorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  mediaRecorder.onstop=processRecording;
+  mediaRecorder.start(1000);
+
+  isRecording=true; isPaused=false;
+  startTs=Date.now(); elapsedBefore=0;
+  timerId=setInterval(tick,200);
+  scope.classList.add('recording'); statusText.textContent='ĐANG THÂU';
+  btnRec.disabled=true; btnPause.disabled=false; btnStop.disabled=false; micSelect.disabled=true;
+  cancelAnimationFrame(rafId); drawWave();
+};
+
+btnPause.onclick=()=>{
+  if(!mediaRecorder) return;
+  if(!isPaused){
+    mediaRecorder.pause(); isPaused=true;
+    elapsedBefore+=(Date.now()-startTs)/1000;
+    statusText.textContent='TẠM DỪNG'; scope.classList.remove('recording');
+    btnPause.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z"/></svg> Tiếp tục';
+  }else{
+    mediaRecorder.resume(); isPaused=false; startTs=Date.now();
+    statusText.textContent='ĐANG THÂU'; scope.classList.add('recording');
+    btnPause.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Tạm dừng';
+  }
+};
+
+btnStop.onclick=()=>{
+  if(!mediaRecorder) return;
+  clearInterval(timerId);
+  processing.classList.add('show');
+  statusText.textContent='ĐANG XỬ LÝ'; scope.classList.remove('recording');
+  btnStop.disabled=true; btnPause.disabled=true;
+  mediaRecorder.stop();
+  mediaStream.getTracks().forEach(t=>t.stop());
+  isRecording=false;
+};
+
+/* ---------- Cắt chính xác 3 phút & xuất WAV ---------- */
+async function processRecording(){
+  try{
+    const blob=new Blob(chunks,{type:mediaRecorder.mimeType||'audio/webm'});
+    const buf=await blob.arrayBuffer();
+    const decodeCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const audio=await decodeCtx.decodeAudioData(buf);
+    decodeCtx.close();
+
+    const sr=audio.sampleRate, total=audio.length;
+    const segLen=SEG_SEC*sr;
+    const n=Math.ceil(total/segLen);
+    const baseIdx=segments.length;
+    const stamp=new Date();
+    const dstr=stamp.getFullYear()+String(stamp.getMonth()+1).padStart(2,'0')+String(stamp.getDate()).padStart(2,'0')+'_'+String(stamp.getHours()).padStart(2,'0')+String(stamp.getMinutes()).padStart(2,'0');
+
+    for(let i=0;i<n;i++){
+      const s=i*segLen, e=Math.min(s+segLen,total), len=e-s;
+      const ch=audio.numberOfChannels;
+      const chData=[];
+      for(let c=0;c<ch;c++) chData.push(audio.getChannelData(c).subarray(s,e));
+      const wav=encodeWAV(chData,sr,len);
+      const url=URL.createObjectURL(wav);
+      const seg={blob:wav,url,dur:len/sr,name:`thau_am_${dstr}_part${String(baseIdx+i+1).padStart(2,'0')}.wav`};
+      try{ if(db) seg.id=await dbAdd(seg); }catch(e){ console.warn('Lưu IndexedDB lỗi:',e); }
+      segments.push(seg);
+    }
+    renderSegments();
+  }catch(e){ showErr('Lỗi xử lý âm thanh: '+e.message); }
+  processing.classList.remove('show');
+  statusText.textContent='SẴN SÀNG';
+  btnRec.disabled=false; micSelect.disabled=false;
+  btnPause.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Tạm dừng';
+  timerEl.firstChild.nodeValue='00:00'; segNow.textContent='1'; segLeft.textContent='03:00'; segFill.style.width='0%';
+  analyser=null;
+  if(audioCtx){audioCtx.close();audioCtx=null;}
+}
+
+function encodeWAV(chData,sampleRate,len){
+  const ch=chData.length, bytesPerSample=2;
+  const dataSize=len*ch*bytesPerSample;
+  const buf=new ArrayBuffer(44+dataSize), v=new DataView(buf);
+  const ws=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  ws(0,'RIFF'); v.setUint32(4,36+dataSize,true); ws(8,'WAVE');
+  ws(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true);
+  v.setUint16(22,ch,true); v.setUint32(24,sampleRate,true);
+  v.setUint32(28,sampleRate*ch*bytesPerSample,true);
+  v.setUint16(32,ch*bytesPerSample,true); v.setUint16(34,16,true);
+  ws(36,'data'); v.setUint32(40,dataSize,true);
+  let off=44;
+  for(let i=0;i<len;i++)for(let c=0;c<ch;c++){
+    let s=Math.max(-1,Math.min(1,chData[c][i]));
+    v.setInt16(off,s<0?s*0x8000:s*0x7FFF,true); off+=2;
+  }
+  return new Blob([buf],{type:'audio/wav'});
+}
+
+/* ---------- Danh sách file ---------- */
+function stopPlaying(){
+  if(playingAudio){playingAudio.pause();playingAudio=null;playingIdx=-1;renderSegments();}
+}
+function renderSegments(){
+  segCount.textContent=segments.length?`(${segments.length} file)`:'';
+  btnDelAll.style.display=btnDlAll.style.display=segments.length?'inline-flex':'none';
+  if(!segments.length){segList.innerHTML='<div class="empty">Chưa có file nào. Bấm <b>Thâu âm</b> để bắt đầu.</div>';return;}
+  segList.innerHTML='';
+  segments.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='seg-item';
+    const playing=i===playingIdx;
+    d.innerHTML=`
+      <div class="idx">#${String(i+1).padStart(2,'0')}</div>
+      <div class="meta">
+        <div class="name">${s.name}</div>
+        <div class="sub">${fmt(s.dur)} · ${(s.blob.size/1048576).toFixed(1)} MB · WAV</div>
+      </div>
+      <div class="acts">
+        <button class="btn-mini play" data-a="play" data-i="${i}">
+          ${playing
+            ?'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Dừng'
+            :'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Nghe'}
+        </button>
+        <button class="btn-mini dl" data-a="dl" data-i="${i}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg> Tải về
+        </button>
+        <button class="btn-mini del" data-a="del" data-i="${i}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0l1 13h8l1-13"/></svg> Xóa
+        </button>
+      </div>`;
+    segList.appendChild(d);
+  });
+}
+segList.onclick=e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  const i=+b.dataset.i, a=b.dataset.a, s=segments[i];
+  if(a==='play'){
+    if(playingIdx===i){stopPlaying();return;}
+    stopPlaying();
+    playingAudio=new Audio(s.url); playingIdx=i;
+    playingAudio.onended=stopPlaying;
+    playingAudio.play(); renderSegments();
+  }
+  if(a==='dl'){
+    const l=document.createElement('a'); l.href=s.url; l.download=s.name; l.click();
+  }
+  if(a==='del'){
+    if(playingIdx===i)stopPlaying();
+    if(db&&s.id!=null) dbDelete(s.id).catch(()=>{});
+    URL.revokeObjectURL(s.url); segments.splice(i,1); playingIdx=-1; renderSegments();
+  }
+};
+btnDelAll.onclick=()=>{
+  if(!confirm('Xóa tất cả '+segments.length+' file?'))return;
+  stopPlaying(); if(db) dbClear().catch(()=>{});
+  segments.forEach(s=>URL.revokeObjectURL(s.url)); segments=[]; renderSegments();
+};
+btnDlAll.onclick=()=>{
+  segments.forEach((s,i)=>setTimeout(()=>{
+    const l=document.createElement('a'); l.href=s.url; l.download=s.name; l.click();
+  }, i*400));
+};
+
+drawWave();
+</script>
+</body>
+</html>
